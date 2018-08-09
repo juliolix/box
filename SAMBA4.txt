@@ -1,0 +1,315 @@
+INSTALACAO SAMBA4 COMO AD NO DEBIAN
+
+ATIVAR COTA NO FSTAB PARA XFS 
+fstab -> usrquota,grpquota,prjquota  1     1
+xfs_quota -x -c 'report'
+xfs_quota -x -c 'state -p'
+
+quota por usuario ->  xfs_quota -x -c 'limit -u bsoft=10M bhard=11M joao'
+quota por grupo   ->  xfs_quota -x -c 'limit -g bsoft=100M bhard=110M suporte'
+
+quota por projeto ->  echo "publico:1000" >> /etc/projid  
+                      echo "1000:/home/publico" >> /etc/projects  
+                      xfs_quota -x -c 'project -s publico' 
+                      xfs_quota -x -c 'limit -p bsoft=50M bhard=55M publico'  
+
+
+#Baixar -> Ferramentas de Administração de Servidor Remoto para Windows 10
+#https://support.microsoft.com/pt-br/help/2693643/remote-server-administration-tools-rsat-for-windows-operating-systems
+
+#Baixar iso pra teste -> https://developer.microsoft.com/en-us/microsoft-edge/tools/vms/
+#The password to your VM is "Passw0rd!"
+
+
+
+1. INSTALAR PACOTES
+
+#apt-get install net-tools 
+ 
+
+# apt-get install samba smbclient winbind krb5-user dnsutils
+
+2. VERIFICAR SEU OS PROCESSOS 
+
+# ps ax | egrep "samba|smbd|nmbd|winbindd"
+STOP /etc/init.d/windbind e samba
+
+3. MATAR OS PROCESSOS
+
+# kill -9 "numero do processo"
+
+4. EDITAR /ETC/HOSTS
+
+# vim /etc/hosts
+
+DEIXAR CONFORME ABAIXO!
+
+127.0.0.1	localhost
+192.168.2.72	ad-linux.intranet.local	srv-002
+
+# The following lines are desirable for IPv6 capable hosts
+#::1     localhost ip6-localhost ip6-loopback
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+
+5. EDITAR RESOLV.CONF
+
+vim /etc.resolv.conf
+
+DEIXAR CONFORME ABAIXO!
+
+domain intranet.local
+nameserver 192.168.2.72
+
+6. REMOVER SMB.CONF (smbd -b | grep "CONFIGFILE")
+
+# rm -rf /etc/samba/smb.conf
+
+7. REMOVER ARQUIVOS *.tdb e *.ldb em LOCKDIR | STATEDIR | CACHEDIR | PRIVATE_DIR
+
+rm /var/run/samba/*.tdb -rfv
+rm /var/lib/samba/*.tdb -rfv
+rm /var/cache/samba/*.tdb -rfv
+rm /var/lib/samba/private/*.tdb -rfv
+
+rm /var/run/samba/*.ldb -rfv
+rm /var/lib/samba/*.ldb -rfv
+rm /var/cache/samba/*.ldb -rfv
+rm /var/lib/samba/private/*.ldb -rfv
+
+
+
+# smbd -b | egrep "LOCKDIR|STATEDIR|CACHEDIR|PRIVATE_DIR"
+
+8. REMOVER KRB5.CONF
+
+# rm /etc/krb5.conf
+
+9. ATERAR FSTAB
+
+# vim /etc/fstab
+
+EXEMPLO
+
+UUID=297596e0-13b2-4f68-865b-b44c4467be60 /mnt/arquivos   ext4     user_xattr,acl,barrier=1        1       1
+
+9. PROVISIONAR SAMBA 
+
+# samba-tool domain provision --use-rfc2307 --use-xattrs=yes --interactive
+
+10. ACRESCENTAR NO GLOBAL EM smb.conf
+
+# vim /etc/samba/smb.conf
+
+add no smb.conf
+
+no Global
+
+
+     vfs objects = acl_xattr
+     map acl inherit = Yes
+     store dos attributes = Yes
+
+
+11. MODOFICAR ARQUIVO DE CONFIGURAÇÃO DO KERBEROS
+
+# vim /var/lib/samba/private/krb5.conf
+
+DEIXAR CONFORME ABAIXO!
+
+[libdefaults]
+	default_realm = INTRANET.LOCAL
+	dns_lookup_realm = false
+	dns_lookup_kdc = true
+[realms]
+        INTRANET.LOCAL = {    
+        kdc = ad-linux.intranet.local 
+        admin_server = ad-linux.intranet.local
+           }
+
+
+12. CRIAR LINK SIMBOLICO ARQUIVO DE CONFIGURAÇÃO DO KERBEROS
+
+# ln -s /var/lib/samba/private/krb5.conf /etc/krb5.conf
+
+13. PARA SERVIÇOS DO SAMBA
+
+# systemctl stop smbd nmbd winbind
+
+14. DESABILITAR SERVIÇOS NO BOOT
+
+# systemctl disable smbd nmbd winbind
+
+15.  REMOVER SCRIPT DO SAMBA  
+
+# systemctl unmask samba-ad-dc
+
+16 . ABILITAR INICIALIZAÇÃO DO SAMBA NO BOOT
+
+# systemctl enable samba-ad-dc
+
+17. REINICIAR SERVIDOR 
+
+# reboot
+
+18. VERIFICAR VERSÃO SO SAMBA
+
+# samba -V
+
+19. LISTAR COMPARTILHAMENTOS
+
+# smbclient -L localhost -U%
+
+20. CONECTAR COMO USUARIO ADMINISTRADOR
+
+# smbclient //localhost/netlogon -UAdministrator%'senha'
+
+########################### VERIFICAR CONFIGURAÇÕES DO DNS ESTAO OK ###########################
+21 . LDAP
+
+# host -t SRV _ldap._tcp.intranet.local.
+
+22. KERBEROS
+
+# host -t SRV _kerberos._udp.intranet.local.
+
+23 . REGISTRO DO DC
+
+# host -t A ad-linux.intranet.local.
+
+24. VERIFICAR TICKET DO DC
+
+# kinit administrator
+
+25. VERIFICAR QUANDO VAI EXPIRAR SENHA DO ADMINISTRADOR
+
+# klist
+
+
+ADICIONAR MAQUINA NO DOMINIO
+INTRANET
+Administrator
+senha
+
+Windows 10 -> intranet.local + senha
+
+INTRANET\Administrator
+senha
+
+
+Local:
+gpupdate /force
+
+Remotamente:
+
+gpupdate /target:ip /force
+
+
+
+
+#Desabilitar expiração de Senha de administrador no samba 4.
+samba-tool user setexpiry Administrator --noexpiry
+ 
+
+#Definir quantos dias o senha do administrador expirará no samba 4.
+samba-tool user setexpiry --days=20 Administrator
+ 
+
+#Verificar as configurações de politicas de senha
+samba-tool domain passwordsettings show
+ 
+
+#Desabilitar complexidade de senha no samba 4
+samba-tool domain passwordsettings set --complexity=off
+ 
+
+#Desabilitar o histórico de senha no samba 4.
+samba-tool domain passwordsettings set --history-length=0
+ 
+
+#Desabiitar idade minima de senha.
+samba-tool domain passwordsettings set --min-pwd-age=0
+ 
+
+#Desabilitar idade maxima da senha no samba 4 .
+samba-tool domain passwordsettings set --max-pwd-age=0
+ 
+
+#Desabilitar tamanho mínimo da senha no samba 4 .
+samba-tool domain passwordsettings set --min-pwd-length=0
+
+
+
+
+
+
+
+
+
+
+
+
+#Exemplo de Script Logon em VbScript para Active directory
+
+
+'============================================================================
+'Impedindo exibição de error para o usuário
+On error Resume Next
+Err.clear 0
+
+'============================================================================
+'Mapeando Unidades de Disco
+
+Set WshNetwork = Wscript.CreateObject("Wscript.Network")
+WshNetwork.MapNetworkDrive "P:","\\SERVER\PASTA1","true"
+WshNetwork.MapNetworkDrive "O:","\\SERVER\PASTA2","true"
+WshNetwork.MapNetworkDrive "U:","\\SERVER\PASTA3","true"
+
+'============================================================================
+'Mapeando Impressora 
+
+Set WshNetwork = Wscript.CreateObject("Wscript.Network")
+WshNetwork.AddWindowsPrinterConnection "\\SERVER\PRINTER1", "PRINTER1"
+WshNetwork.SetDefaultPrinter "\\SERVER\PRINTER", "PRINTER1"
+
+'============================================================================
+'CRIA ATALHO DO COMPARTILHAMENTO NO DESKTOP
+
+strAppPath = "U:\"
+Set wshShell = CreateObject("WScript.Shell")
+objDesktop = wshShell.SpecialFolders("Desktop")
+set oShellLink = WshShell.CreateShortcut(objDesktop & "\Diretorio Pessoal.lnk")
+oShellLink.TargetPath = strAppPath
+oShellLink.WindowStyle = "1"
+oShellLink.Description = "Diretorio Pessoal"
+oShellLink.Save 
+
+'ENVIA O COMANDO PARA APERTAR A TECLA F5 PARA ATUALIZAR OS ICONES NO DESKTOP
+WshShell.SendKeys "{F5}"
+
+'============================================================================
+'SINCRONIZA HORARIO ESTAÇÃO x SERVIDOR
+Set wshShell = CreateObject("WScript.Shell")
+wshShell.Run "NET TIME \\SERVER /SET /Y", 0, True
+
+
+
+'============================================================================
+'Boas Vindas Ao Usuario
+
+Set objUser = WScript.CreateObject("WScript.Network")
+wuser=objUser.UserName
+If Time <= "12:00:00" Then
+MsgBox ("Bom Dia "+Wuser+", você acaba de ingressar na rede corporativa por favor respeite as políticas de segurança e bom trabalho!")
+ElseIf Time >= "12:00:01" And Time <= "18:00:00" Then
+MsgBox ("Boa Tarde "+Wuser+", você acaba de ingressar na rede corporativa por favor respeite as políticas de segurança e bom trabalho!")
+Else
+MsgBox ("Boa Noite "+wuser+", você acaba de ingressar na rede corporativa por favor respeite as políticas de segurança e bom trabalho!")
+End If
+
+Wscript.Quit
+
+
+
+
+
