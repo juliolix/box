@@ -15,3 +15,6 @@ iptables -X -t mangle
 
 iptables -P INPUT ACCEPT
 iptables -P OUTPUT ACCEPT
+
+# LISTA AS REGRAS PARA VISUALIZAR
+iptables -L -n
