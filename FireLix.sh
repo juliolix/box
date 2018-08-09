@@ -1,6 +1,7 @@
 #!/bin/bash
 #Firewall FireLix 
 #Be happy Joao :) uncle Julio Martins!
+#bash <(curl -s http://mywebsite.com/myscript.txt)
 
 
 # Limpa todas as regras do Firewall
