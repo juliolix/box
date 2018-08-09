@@ -1,6 +1,8 @@
-Cria regras de Firewall \b
+Cria regras de Firewall:
+
 curl -Ss https://raw.githubusercontent.com/juliolix/box/master/FireLix.sh | bash 
 
-Limpa regras de Firewall
+Limpa regras de Firewall:
+
 curl -Ss https://raw.githubusercontent.com/juliolix/box/master/LimpaFireLix.sh | bash 
 
