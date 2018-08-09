@@ -1,7 +1,7 @@
 #!/bin/bash
 #Firewall FireLix 
 #Be happy Joao :) uncle Julio Martins!
-#https://raw.githubusercontent.com/juliolix/box/master/FireLix.sh
+#curl -Ss https://raw.githubusercontent.com/juliolix/box/master/FireLix.sh | bash 
 
 
 # Limpa todas as regras do Firewall
